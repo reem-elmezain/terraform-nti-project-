@@ -2,6 +2,17 @@ provider "aws" {
   region = var.region
 }
 
+
+terraform {
+  required_providers {
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
+  }
+}
+
+
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
@@ -222,24 +233,27 @@ resource "aws_lb_listener" "listener" {
 
 
 resource "aws_s3_bucket" "alb_logs" {
-  bucket = "my-alb-access-logs-bucket"
+  bucket = "load-logs-unique-name-12345"  # لازم الاسم يكون فريد على مستوى AWS
 }
+
 data "aws_elb_service_account" "alb" {}
+
 resource "aws_s3_bucket_policy" "alb_logs_policy" {
   bucket = aws_s3_bucket.alb_logs.id
 
   policy = jsonencode({
-    Version = "2012-10-17"
+    Version = "2012-10-17",
     Statement = [
       {
-        Sid    = "AllowALBAccessLogs"
-        Effect = "Allow"
+        Sid = "AllowALBAccessLogs",
+        Effect = "Allow",
         Principal = {
           AWS = data.aws_elb_service_account.alb.arn
-        }
-        Action   = "s3:PutObject"
+        },
+        Action = "s3:PutObject",
         Resource = "${aws_s3_bucket.alb_logs.arn}/AWSLogs/*"
       }
     ]
   })
 }
+
