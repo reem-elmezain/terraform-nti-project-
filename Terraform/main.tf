@@ -1,16 +1,16 @@
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
 provider "aws" {
   region = var.region
 }
 
-
-terraform {
-  required_providers {
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.6"
-    }
-  }
-}
 
 
 resource "aws_vpc" "main" {
@@ -202,7 +202,13 @@ resource "aws_lb" "alb" {
     prefix  = "alb-logs"
     enabled = true
   }
+
+  depends_on = [
+    aws_s3_bucket_policy.alb_logs_policy,
+    aws_s3_bucket_ownership_controls.alb_logs
+  ]
 }
+
 
 
 resource "aws_lb_target_group" "tg" {
@@ -245,15 +251,34 @@ resource "aws_s3_bucket_policy" "alb_logs_policy" {
     Version = "2012-10-17",
     Statement = [
       {
-        Sid = "AllowALBAccessLogs",
+        Sid    = "AllowALBAccessLogs",
         Effect = "Allow",
         Principal = {
           AWS = data.aws_elb_service_account.alb.arn
         },
-        Action = "s3:PutObject",
-        Resource = "${aws_s3_bucket.alb_logs.arn}/AWSLogs/*"
+        Action   = "s3:PutObject",
+        Resource = "${aws_s3_bucket.alb_logs.arn}/alb-logs/AWSLogs/*"
       }
     ]
   })
 }
+
+resource "aws_s3_bucket_ownership_controls" "alb_logs" {
+  bucket = aws_s3_bucket.alb_logs.id
+
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "alb_logs" {
+  bucket = aws_s3_bucket.alb_logs.id
+
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
+}
+
+
 
